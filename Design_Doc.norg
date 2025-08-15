@@ -1,0 +1,31 @@
+Design Doc Template Inspired by Sadneo
+
+* Invoice Constructor
+** Problem Statement
+   Currently I manually create invoices for my classes manually through a latex document and converting them to pdfs. This is tedious having to read from the logged payments and adding each one individually, It would be nice if there were an automated way to pull from my database and generate the invoice based off whatever is logged.
+
+** Functional Requirements
+   - Prompt user for SENDER_NAME, LOCATION, INVOICE #, DATE, PARENT_NAME, STUDENT_NAME, MAILTO_ADDRESS(STREET_ADDRESS, CITY, STATE, ZIP), DB(sqlite)m START_DATE, END_DATE
+   - Parses the logs of payments and lists them in the inoice with DATE, DESCRIPTION, HOURS, RATE, AMOUNT as the columns
+   - Gives a tex or pdf doc
+
+** Optional Requirements
+   - A webclient for pasing in the arguments
+   - Different invoice templates rather than just the tutoring template
+   - Dockerizing it to be pulled on any machine
+   - A tex to pdf editor to edit the tex file after generation
+   - Support for postgres
+
+** Design
+   - Written in python for library support
+   - Uses custom pdf converter script to compile tex to pdf
+
+* TODO
+  - (x) Create Design Doc
+  - ( ) Create Tex Doc Template
+  - ( ) Create script for inputing into sqlite
+  - ( ) Implement prompter function to obtain arguments
+  - ( ) Find py library to write to tex doc
+  - ( ) Generate Tex Doc from arguments and template
+  - ( ) Integerate custom pdfconverter script to convert tex to pdf
+

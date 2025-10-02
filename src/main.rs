@@ -1,16 +1,18 @@
 use std::io;
 
-fn request_data(data: &mut String) {
+fn request_string() -> String {
+    let mut line = String::new();
     io::stdin()
-        .read_line(data)
+        .read_line(&mut line)
         .expect("Something went wrong");
-    println!("Got {data}");
+    println!("Got {line}");
+    line
 }
 
 fn main() {
     println!("Provide the senders name: ");
-    let mut senders_name = String::new();
-    request_data(&mut senders_name);
-    let mut location = String::new();
-    request_data(&mut location);
+    let _senders_name = request_string();
+    
+    println!("Provide the location: ");
+    let _location = request_string();
 }

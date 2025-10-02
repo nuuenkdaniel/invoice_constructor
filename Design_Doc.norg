@@ -22,7 +22,7 @@ Design Doc Template Inspired by Sadneo
 
 * TODO
   - (x) Create Design Doc
-  - ( ) Create Tex Doc Template
+  - (x) Create Tex Doc Template
   - ( ) Create script for inputing into sqlite
   - ( ) Implement prompter function to obtain arguments
   - ( ) Find py library to write to tex doc

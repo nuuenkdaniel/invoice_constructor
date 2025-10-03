@@ -17,7 +17,7 @@ fn input_time(db_path: &str, time_start: &str, time_end: &str, date: Option<&str
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           date TEXT NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
           time_start TEXT NOT NULL CHECK (time_start GLOB '[0-2][0-9]:[0-5][0-9]'),
-          time_end   TEXT NOT NULL CHECK (time_end   GLOB '[0-2][0-9]:[0-5][0-9]'),
+          time_end TEXT NOT NULL CHECK (time_end GLOB '[0-2][0-9]:[0-5][0-9]'),
           CHECK (time_end > time_start)
         );
     "#)?;
@@ -37,8 +37,6 @@ fn request_string() -> String {
 }
 
 fn request_invoice_info() -> (String, String, String, String, f32) {
-    let args: Vec<String> = env::args().collect();
-    dbg!(args);
     println!("Provide the senders name: ");
     let senders_name = request_string();
 
@@ -60,9 +58,20 @@ fn request_invoice_info() -> (String, String, String, String, f32) {
     (senders_name, location_name, location_street, location_city, rate)
 }
 
-fn main() -> Result<()> {
-    request_invoice_info();
-    input_time("./test.db", "10:00", "11:00", None).unwrap();
+fn main() -> Result<()>{
+    let args: Vec<String> = env::args().collect();
+    dbg!(&args);
+    if args.len() > 1 {
+        let date = if args.len() >= 5 {
+            Some(args[4].as_str())
+        } else {
+            None
+        };
+        input_time(&args[1], &args[2], &args[3], date)?;
+    }
+    else {
+        request_invoice_info();
+    }
     println!("TO BE IMPLEMENTED");
     Ok(())
 }

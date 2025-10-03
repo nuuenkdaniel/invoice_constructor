@@ -1,3 +1,4 @@
+use std::fs;
 use std::io;
 use std::env;
 // use std::fs;
@@ -36,7 +37,12 @@ fn request_string() -> String {
     line
 }
 
-fn request_invoice_info() -> (String, String, String, String, f32) {
+fn request_invoice_info() -> 
+(
+    String, String, String, String,
+    String, String, String, String,
+    String, String
+) {
     println!("Provide the senders name: ");
     let senders_name = request_string();
 
@@ -47,30 +53,78 @@ fn request_invoice_info() -> (String, String, String, String, f32) {
     println!("Provide the location city, state, and zip: ");
     let location_city = request_string();
 
+    println!("Provide the parent name: ");
+    let parent_name = request_string();
+    println!("Provide the student name: ");
+    let student_name = request_string();
+    println!("Provide the bill to street address: ");
+    let bill_to_street = request_string();
+    println!("Provide the bill to city, state, and zip: ");
+    let bill_to_city = request_string();
+
+    println!("Provide the invoice#: ");
+    let invoice_num = match request_string().trim().parse::<usize>() {
+        Ok(num) => num.to_string(),
+        Err(_) => {
+            println!("Invalid number, please provide a number");
+            panic!();
+        }
+    };
+
     println!("Provide the rate: ");
-    let rate: f32 = match request_string().trim().parse() {
-        Ok(num) => num,
+    let rate = match request_string().trim().parse::<f32>() {
+        Ok(num) => num.to_string(),
         Err(_) => {
             println!("Invalid rate, please provide a number");
             panic!();
         }
     };
-    (senders_name, location_name, location_street, location_city, rate)
+    (
+        senders_name, location_name, location_street, location_city,
+        parent_name, student_name, bill_to_street, bill_to_city,
+        invoice_num, rate
+    )
+}
+
+fn generate_tutoring_invoice(
+    invoice_info: (
+    String, String, String, String,
+    String, String, String, String,
+    String, String
+    ),
+    template_path: &str,
+    output_path: &str,
+) -> Result<()> {
+    let template_path = PathBuf::from(template_path);
+    let output_path = PathBuf::from(output_path);
+    let mut template = fs::read_to_string(template_path).unwrap();
+
+    template = template.replace("{{SENDER_NAME}}", &invoice_info.0.trim());
+    template = template.replace("{{LOCATION_NAME}}", &invoice_info.1.trim());
+    template = template.replace("{{LOCATION_STREET_ADDRESS}}", &invoice_info.2.trim());
+    template = template.replace("{{LOCATION_CITY_STATE_ZIP}}", &invoice_info.3.trim());
+    template = template.replace("{{INVOICE_NUMBER}}", &invoice_info.8);
+    let date = Local::now().date_naive().to_string();
+    template = template.replace("{{DATE}}", &date);
+    template = template.replace("{{PARENT_NAME}}", &invoice_info.4.trim());
+    template = template.replace("{{STUDENT_NAME}}", &invoice_info.5.trim());
+    template = template.replace("{{BILL_TO_STREET_ADDRESS}}", &invoice_info.6.trim());
+    template = template.replace("{{BILL_TO_CITY_STATE_ZIP}}", &invoice_info.7.trim());
+
+    fs::write(output_path, template).unwrap();
+    Ok(())
 }
 
 fn main() -> Result<()>{
     let args: Vec<String> = env::args().collect();
     dbg!(&args);
-    if args.len() > 1 {
-        let date = if args.len() >= 5 {
-            Some(args[4].as_str())
-        } else {
-            None
-        };
+    if args.len() > 3 {
+        let date = if args.len() >= 5 { Some(args[4].as_str()) } else { None };
         input_time(&args[1], &args[2], &args[3], date)?;
     }
     else {
-        request_invoice_info();
+        let invoice_info = request_invoice_info();
+        generate_tutoring_invoice(invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
     }
     println!("TO BE IMPLEMENTED");
     Ok(())

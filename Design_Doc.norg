@@ -23,9 +23,9 @@ Design Doc Template Inspired by Sadneo
 * TODO
   - (x) Create Design Doc
   - (x) Create Tex Doc Template
-  - ( ) Create script for inputing into sqlite
-  - ( ) Implement prompter function to obtain arguments
-  - ( ) Find py library to write to tex doc
-  - ( ) Generate Tex Doc from arguments and template
+  - (x) Create script for inputing into sqlite
+  - (x) Implement prompter function to obtain arguments
+  - (x) Find py library to write to tex doc
+  - (x) Generate Tex Doc from arguments and template
   - ( ) Integerate custom pdfconverter script to convert tex to pdf
 

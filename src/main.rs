@@ -1,7 +1,6 @@
 use std::fs;
 use std::io;
 use std::env;
-// use std::fs;
 use std::path::{PathBuf};
 
 use chrono::prelude::*;
@@ -94,6 +93,7 @@ struct Hours {
 
 fn generate_tutoring_invoice(
     db_path: &str,
+    // TODO: This is stupid change to struct later
     invoice_info: (
         String, String, String, String,
         String, String, String, String,
@@ -172,7 +172,7 @@ fn generate_tutoring_invoice(
     }
     template = template.replace("{{TOTAL}}", &((total_hours*rate).to_string()));
     template = template.replace("{{PAID}}", &((total_hours*rate).to_string()));
-    template = template.replace("{{PAYMENT_METHOD}}", &("(test)"));
+    template = template.replace("{{PAYMENT_METHOD}}", &("(in cash)"));
 
     fs::write(output_path, template).unwrap();
     Ok(())
@@ -185,10 +185,11 @@ fn main() -> Result<()>{
         let date = if args.len() >= 5 { Some(args[4].as_str()) } else { None };
         input_time(&args[1], &args[2], &args[3], date)?;
     }
-    else {
+    else if args.len() > 1 {
+        let db_path = &args[1];
         let invoice_info = request_invoice_info();
-        generate_tutoring_invoice("test.db", invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
+        generate_tutoring_invoice(db_path, invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
     }
-    println!("TO BE IMPLEMENTED");
+    else { return Ok(()); }
     Ok(())
 }

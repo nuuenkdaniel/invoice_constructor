@@ -86,11 +86,18 @@ fn request_invoice_info() ->
     )
 }
 
+struct Hours {
+    date: String,
+    time_start: String,
+    time_end: String,
+}
+
 fn generate_tutoring_invoice(
+    db_path: &str,
     invoice_info: (
-    String, String, String, String,
-    String, String, String, String,
-    String, String
+        String, String, String, String,
+        String, String, String, String,
+        String, String
     ),
     template_path: &str,
     output_path: &str,
@@ -111,20 +118,72 @@ fn generate_tutoring_invoice(
     template = template.replace("{{BILL_TO_STREET_ADDRESS}}", &invoice_info.6.trim());
     template = template.replace("{{BILL_TO_CITY_STATE_ZIP}}", &invoice_info.7.trim());
 
+    let db_path = PathBuf::from(db_path);
+    let conn = Connection::open(&db_path)?;
+    let mut stmt = conn.prepare("SELECT date, time_start, time_end FROM tutoring_hours")?;
+
+    // Get hours from db
+    let tutoring_hours = stmt.query_map([], |row| {
+        Ok(Hours {
+            date: row.get(0)?,
+            time_start: row.get(1)?,
+            time_end: row.get(2)?,
+        })
+    })?;
+
+    let mut total_hours: f32 = 0.0;
+    let mut rows: Vec<String> = Vec::new();
+    for hour in tutoring_hours {
+        let data = hour?;
+
+        let (mut hrs, mut mins) = data.time_start.split_once(':').expect("Expected as HH:MM format");
+        let start_hour: f32 = 
+        ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
+        + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
+            .round()/2 as f32;
+
+        (hrs, mins) = data.time_end.split_once(':').expect("Expected as HH:MM format");
+        let end_hour: f32 = 
+        ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
+        + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
+            .round()/2.0 as f32;
+
+        let timedelta = end_hour - start_hour;
+        total_hours += timedelta;
+
+        let rate: f32 = invoice_info.8.trim().parse().expect("Given rate could not be parsed to f32");
+        let description = "test";
+        let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, data.time_start, data.time_end, rate, timedelta*rate);
+        rows.push(row_formatted);
+        println!("{}\t{}\t{}", data.date, data.time_start, data.time_end);
+        println!("Hours: {timedelta}");
+    }
+    dbg!(&rows);
+    println!("Total Hours: {total_hours}");
+    let pattern = "% COLUMN START";
+    if let Some(index) = template.find(pattern) {
+        let mut insertion_point = index + pattern.len();
+        for row in rows.iter() {
+            let row_formatted: String = format!("\n{}", row);
+            template.insert_str(insertion_point, &row_formatted);
+            insertion_point += row_formatted.len();
+        }
+    }
+
     fs::write(output_path, template).unwrap();
     Ok(())
 }
 
 fn main() -> Result<()>{
     let args: Vec<String> = env::args().collect();
-    dbg!(&args);
+    // dbg!(&args);
     if args.len() > 3 {
         let date = if args.len() >= 5 { Some(args[4].as_str()) } else { None };
         input_time(&args[1], &args[2], &args[3], date)?;
     }
     else {
         let invoice_info = request_invoice_info();
-        generate_tutoring_invoice(invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
+        generate_tutoring_invoice("test.db", invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
     }
     println!("TO BE IMPLEMENTED");
     Ok(())

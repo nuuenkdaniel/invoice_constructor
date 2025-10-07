@@ -5,7 +5,7 @@ Design Doc Template Inspired by Sadneo
    Currently I manually create invoices for my classes manually through a latex document and converting them to pdfs. This is tedious having to read from the logged payments and adding each one individually, It would be nice if there were an automated way to pull from my database and generate the invoice based off whatever is logged.
 
 ** Functional Requirements
-   - Prompt user for SENDER_NAME, LOCATION, INVOICE #, DATE, PARENT_NAME, STUDENT_NAME, MAILTO_ADDRESS(STREET_ADDRESS, CITY, STATE, ZIP), DB(sqlite)m START_DATE, END_DATE
+   - Prompt user for INVOICE_TITLE, SENDER_NAME, LOCATION, INVOICE #, DATE, PARENT_NAME, STUDENT_NAME, MAILTO_ADDRESS(STREET_ADDRESS, CITY, STATE, ZIP), DB(sqlite)m START_DATE, END_DATE
    - Parses the logs of payments and lists them in the inoice with DATE, DESCRIPTION, HOURS, RATE, AMOUNT as the columns
    - Gives a tex or pdf doc
 
@@ -17,8 +17,7 @@ Design Doc Template Inspired by Sadneo
    - Support for postgres
 
 ** Design
-   - Written in python for library support
-   - Uses custom pdf converter script to compile tex to pdf
+   - Written in rust because fun
 
 * TODO
   - (x) Create Design Doc
@@ -27,5 +26,6 @@ Design Doc Template Inspired by Sadneo
   - (x) Implement prompter function to obtain arguments
   - (x) Find py library to write to tex doc
   - (x) Generate Tex Doc from arguments and template
-  - ( ) Integerate custom pdfconverter script to convert tex to pdf
-
+  - ( ) Convert tex straight to pdf on default
+  - ( ) Setup arg parsing -i input time, -c config(so you don't have to type out everything everytime), -t template(future thing)
+  - ( ) Create readme

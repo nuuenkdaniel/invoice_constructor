@@ -118,6 +118,8 @@ fn generate_tutoring_invoice(
     template = template.replace("{{BILL_TO_STREET_ADDRESS}}", &invoice_info.6.trim());
     template = template.replace("{{BILL_TO_CITY_STATE_ZIP}}", &invoice_info.7.trim());
 
+    let rate: f32 = invoice_info.9.trim().parse().expect("Given rate could not be parsed to f32");
+
     let db_path = PathBuf::from(db_path);
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn.prepare("SELECT date, time_start, time_end FROM tutoring_hours")?;
@@ -151,7 +153,6 @@ fn generate_tutoring_invoice(
         let timedelta = end_hour - start_hour;
         total_hours += timedelta;
 
-        let rate: f32 = invoice_info.8.trim().parse().expect("Given rate could not be parsed to f32");
         let description = "test";
         let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, data.time_start, data.time_end, rate, timedelta*rate);
         rows.push(row_formatted);
@@ -169,6 +170,9 @@ fn generate_tutoring_invoice(
             insertion_point += row_formatted.len();
         }
     }
+    template = template.replace("{{TOTAL}}", &((total_hours*rate).to_string()));
+    template = template.replace("{{PAID}}", &((total_hours*rate).to_string()));
+    template = template.replace("{{PAYMENT_METHOD}}", &("(test)"));
 
     fs::write(output_path, template).unwrap();
     Ok(())

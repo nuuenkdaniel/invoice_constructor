@@ -6,6 +6,21 @@ use std::path::{PathBuf};
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
 
+struct InvoiceInfo {
+    title: String,
+    sender_name: String,
+    location_name: String,
+    location_street: String,
+    location_city: String,
+    parent_name: String,
+    student_name: String,
+    bill_to_street: String,
+    bill_to_city: String,
+    invoice_num: String,
+    rate: String,
+    payment_method: String
+}
+
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
 fn input_time(db_path: &str, time_start: &str, time_end: &str, date: Option<&str>,) -> Result<()> {
     let current_date = Local::now().date_naive().to_string();
@@ -36,12 +51,10 @@ fn request_string() -> String {
     line
 }
 
-fn request_invoice_info() -> 
-(
-    String, String, String, String,
-    String, String, String, String,
-    String, String
-) {
+fn request_invoice_info() -> InvoiceInfo {
+    println!("Provide a title for the invoice: ");
+    let title = request_string();
+
     println!("Provide the senders name: ");
     let senders_name = request_string();
 
@@ -78,11 +91,24 @@ fn request_invoice_info() ->
             panic!();
         }
     };
-    (
-        senders_name, location_name, location_street, location_city,
-        parent_name, student_name, bill_to_street, bill_to_city,
-        invoice_num, rate
-    )
+
+    println!("Provide a payment method: ");
+    let payment_method = request_string();
+
+    InvoiceInfo { 
+        title: title,
+        sender_name: senders_name,
+        location_name: location_name,
+        location_street: location_street,
+        location_city: location_city,
+        parent_name: parent_name,
+        student_name: student_name,
+        bill_to_street: bill_to_street,
+        bill_to_city: bill_to_city,
+        invoice_num: invoice_num,
+        rate: rate,
+        payment_method: payment_method
+    }
 }
 
 struct Hours {
@@ -93,12 +119,7 @@ struct Hours {
 
 fn generate_tutoring_invoice(
     db_path: &str,
-    // TODO: This is stupid change to struct later
-    invoice_info: (
-        String, String, String, String,
-        String, String, String, String,
-        String, String
-    ),
+    invoice_info: InvoiceInfo,
     template_path: &str,
     output_path: &str,
 ) -> Result<()> {
@@ -106,19 +127,20 @@ fn generate_tutoring_invoice(
     let output_path = PathBuf::from(output_path);
     let mut template = fs::read_to_string(template_path).unwrap();
 
-    template = template.replace("{{SENDER_NAME}}", &invoice_info.0.trim());
-    template = template.replace("{{LOCATION_NAME}}", &invoice_info.1.trim());
-    template = template.replace("{{LOCATION_STREET_ADDRESS}}", &invoice_info.2.trim());
-    template = template.replace("{{LOCATION_CITY_STATE_ZIP}}", &invoice_info.3.trim());
-    template = template.replace("{{INVOICE_NUMBER}}", &invoice_info.8);
+    template = template.replace("{{TITLE}}", &invoice_info.title.trim());
+    template = template.replace("{{SENDER_NAME}}", &invoice_info.sender_name.trim());
+    template = template.replace("{{LOCATION_NAME}}", &invoice_info.location_name.trim());
+    template = template.replace("{{LOCATION_STREET_ADDRESS}}", &invoice_info.location_street.trim());
+    template = template.replace("{{LOCATION_CITY_STATE_ZIP}}", &invoice_info.location_city.trim());
+    template = template.replace("{{INVOICE_NUMBER}}", &invoice_info.invoice_num.trim());
     let date = Local::now().date_naive().to_string();
     template = template.replace("{{DATE}}", &date);
-    template = template.replace("{{PARENT_NAME}}", &invoice_info.4.trim());
-    template = template.replace("{{STUDENT_NAME}}", &invoice_info.5.trim());
-    template = template.replace("{{BILL_TO_STREET_ADDRESS}}", &invoice_info.6.trim());
-    template = template.replace("{{BILL_TO_CITY_STATE_ZIP}}", &invoice_info.7.trim());
+    template = template.replace("{{PARENT_NAME}}", &invoice_info.parent_name.trim());
+    template = template.replace("{{STUDENT_NAME}}", &invoice_info.student_name.trim());
+    template = template.replace("{{BILL_TO_STREET_ADDRESS}}", &invoice_info.bill_to_street.trim());
+    template = template.replace("{{BILL_TO_CITY_STATE_ZIP}}", &invoice_info.bill_to_city.trim());
 
-    let rate: f32 = invoice_info.9.trim().parse().expect("Given rate could not be parsed to f32");
+    let rate: f32 = invoice_info.rate.trim().parse().expect("Given rate could not be parsed to f32");
 
     let db_path = PathBuf::from(db_path);
     let conn = Connection::open(&db_path)?;
@@ -159,7 +181,6 @@ fn generate_tutoring_invoice(
         println!("{}\t{}\t{}", data.date, data.time_start, data.time_end);
         println!("Hours: {timedelta}");
     }
-    dbg!(&rows);
     println!("Total Hours: {total_hours}");
     let pattern = "% COLUMN START";
     if let Some(index) = template.find(pattern) {
@@ -172,7 +193,7 @@ fn generate_tutoring_invoice(
     }
     template = template.replace("{{TOTAL}}", &((total_hours*rate).to_string()));
     template = template.replace("{{PAID}}", &((total_hours*rate).to_string()));
-    template = template.replace("{{PAYMENT_METHOD}}", &("(in cash)"));
+    template = template.replace("{{PAYMENT_METHOD}}", &invoice_info.payment_method.trim());
 
     fs::write(output_path, template).unwrap();
     Ok(())
@@ -180,7 +201,6 @@ fn generate_tutoring_invoice(
 
 fn main() -> Result<()>{
     let args: Vec<String> = env::args().collect();
-    // dbg!(&args);
     if args.len() > 3 {
         let date = if args.len() >= 5 { Some(args[4].as_str()) } else { None };
         input_time(&args[1], &args[2], &args[3], date)?;

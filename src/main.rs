@@ -21,6 +21,12 @@ struct InvoiceInfo {
     payment_method: String
 }
 
+fn help(arg1: &str) {
+    println!("usage:
+    {arg1} -i <db_file> <start_time> <end_time> [date]
+    {arg1} -x [-t template_file] <-d db_file | -c config>");
+}
+
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
 fn input_time(db_path: &str, time_start: &str, time_end: &str, date: Option<&str>,) -> Result<()> {
     let current_date = Local::now().date_naive().to_string();
@@ -201,15 +207,16 @@ fn generate_tutoring_invoice(
 
 fn main() -> Result<()>{
     let args: Vec<String> = env::args().collect();
-    if args.len() > 3 {
-        let date = if args.len() >= 5 { Some(args[4].as_str()) } else { None };
-        input_time(&args[1], &args[2], &args[3], date)?;
+    if args.len() == 1 { help(&args[0]); }
+    else if args[1] == "-i" {
+        let date = if args.len() >= 6 { Some(args[5].as_str()) } else { None };
+        input_time(&args[2], &args[3], &args[4], date)?;
     }
-    else if args.len() > 1 {
-        let db_path = &args[1];
+    else if args[1] == "-x" {
+        let db_path = &args[2];
         let invoice_info = request_invoice_info();
         generate_tutoring_invoice(db_path, invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
     }
-    else { return Ok(()); }
+    else { help(&args[0]); }
     Ok(())
 }

@@ -2,6 +2,7 @@ use std::fs;
 use std::io;
 use std::env;
 use std::path::{PathBuf};
+use std::iter::Peekable;
 
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
@@ -206,7 +207,38 @@ fn generate_tutoring_invoice(
 }
 
 fn main() -> Result<()>{
-    let args: Vec<String> = env::args().collect();
+    let mut args = env::args().peekable();
+    let program_path = args.next().unwrap_or_default();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                help(&program_path);
+                std::process::exit(0);
+            },
+            "-i" | "--input_time" => {
+                let db_path: String = args.next_if(|x| !x.starts_with("-")).unwrap_or_default();
+                if Some(&db_path) == None {
+                    help(&program_path);
+                    std::process::exit(1);
+                }
+                let start_time: String = args.next_if(|x| !x.starts_with("-")).unwrap_or_default();
+                if Some(&start_time) == None {
+                    help(&program_path);
+                    std::process::exit(1);
+                }
+                let end_time: String = args.next_if(|x| !x.starts_with("-")).unwrap_or_default();
+                if Some(&end_time) == None {
+                    help(&program_path);
+                    std::process::exit(1);
+                }
+            },
+            _ => {
+                help(&program_path);
+                std::process::exit(1);
+            }
+        }
+    }
+    /*
     if args.len() == 1 { help(&args[0]); }
     else if args[1] == "-i" {
         let date = if args.len() >= 6 { Some(args[5].as_str()) } else { None };
@@ -218,5 +250,6 @@ fn main() -> Result<()>{
         generate_tutoring_invoice(db_path, invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
     }
     else { help(&args[0]); }
+*/
     Ok(())
 }

@@ -1,8 +1,6 @@
 use std::fs;
 use std::io;
-use std::env;
 use std::path::{PathBuf};
-use std::iter::Peekable;
 
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
@@ -20,12 +18,6 @@ struct InvoiceInfo {
     invoice_num: String,
     rate: String,
     payment_method: String
-}
-
-fn help(arg1: &str) {
-    println!("usage:
-    {arg1} -i <db_file> <start_time> <end_time> [date]
-    {arg1} -x [-t template_file] <-d db_file | -c config>");
 }
 
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
@@ -170,13 +162,13 @@ fn generate_tutoring_invoice(
         let (mut hrs, mut mins) = data.time_start.split_once(':').expect("Expected as HH:MM format");
         let start_hour: f32 = 
         ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
-        + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
+            + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
             .round()/2 as f32;
 
         (hrs, mins) = data.time_end.split_once(':').expect("Expected as HH:MM format");
         let end_hour: f32 = 
         ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
-        + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
+            + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
             .round()/2.0 as f32;
 
         let timedelta = end_hour - start_hour;
@@ -206,50 +198,42 @@ fn generate_tutoring_invoice(
     Ok(())
 }
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+struct Cli {
+    #[arg(
+        short = 'i',
+        long = "input_time",
+        value_names = ["DB_PATH", "START_TIME", "END_TIME", "DATE"],
+        num_args = 3..=4
+    )]
+    input_time: Option<Vec<String>>,
+
+    #[arg(
+        short = 'x',
+        long = "exec",
+        allow_hyphen_values = true,
+        num_args = 2..=4
+    )]
+    exec: Option<Vec<String>>,
+
+    #[arg(short = 'c', long="config")] config: Option<String>,
+    #[arg(short = 't', long="template")] template: Option<String>,
+}
+
 fn main() -> Result<()>{
-    let mut args = env::args().peekable();
-    let program_path = args.next().unwrap_or_default();
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "-h" | "--help" => {
-                help(&program_path);
-                std::process::exit(0);
-            },
-            "-i" | "--input_time" => {
-                let db_path: String = args.next_if(|x| !x.starts_with("-")).unwrap_or_default();
-                if Some(&db_path) == None {
-                    help(&program_path);
-                    std::process::exit(1);
-                }
-                let start_time: String = args.next_if(|x| !x.starts_with("-")).unwrap_or_default();
-                if Some(&start_time) == None {
-                    help(&program_path);
-                    std::process::exit(1);
-                }
-                let end_time: String = args.next_if(|x| !x.starts_with("-")).unwrap_or_default();
-                if Some(&end_time) == None {
-                    help(&program_path);
-                    std::process::exit(1);
-                }
-            },
-            _ => {
-                help(&program_path);
-                std::process::exit(1);
-            }
-        }
+    let cli = Cli::parse();
+
+    if let Some(input_vals) = cli.input_time.as_deref() {
+        let date: Option<&str> = input_vals.get(3).map(|x| x.as_str());
+        input_time(&input_vals[0], &input_vals[1], &input_vals[2], date)?;
     }
-    /*
-    if args.len() == 1 { help(&args[0]); }
-    else if args[1] == "-i" {
-        let date = if args.len() >= 6 { Some(args[5].as_str()) } else { None };
-        input_time(&args[2], &args[3], &args[4], date)?;
-    }
-    else if args[1] == "-x" {
-        let db_path = &args[2];
+    if let Some(_exec_vals) = cli.exec.as_deref() {
+        let db_path = "test.db";
         let invoice_info = request_invoice_info();
         generate_tutoring_invoice(db_path, invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
     }
-    else { help(&args[0]); }
-*/
+
     Ok(())
 }

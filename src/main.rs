@@ -5,6 +5,7 @@ use std::path::{PathBuf};
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
 
+#[derive(Default, Debug)]
 struct InvoiceInfo {
     title: String,
     sender_name: String,
@@ -200,6 +201,30 @@ fn generate_tutoring_invoice(
 
 use clap::Parser;
 
+#[derive(Default, Debug)]
+struct ExecValues {
+    db_path: String,
+    template_path: String,
+    output_path: String,
+    invoice_info: InvoiceInfo
+}
+
+fn parse_exec_config(_config_path: &str) -> ExecValues {
+
+}
+
+fn parse_exec(vals: &[String]) -> ExecValues {
+    let mut exec_config = ExecValues::default();
+    if vals[0] == "-c" { exec_config = parse_exec_config(&vals[1]); }
+    else {
+        exec_config.db_path = vals[0].clone();
+        exec_config.template_path = vals[1].clone();
+        exec_config.output_path = vals[2].clone();
+        exec_config.invoice_info = request_invoice_info();
+    }
+    exec_config
+}
+
 #[derive(Parser, Debug)]
 struct Cli {
     #[arg(
@@ -214,25 +239,24 @@ struct Cli {
         short = 'x',
         long = "exec",
         allow_hyphen_values = true,
-        num_args = 2..=4
+        value_names = ["DB_PATH", "TEMPLATE_PATH", "OUTPUT_PATH"],
+        num_args = 2
     )]
     exec: Option<Vec<String>>,
 
     #[arg(short = 'c', long="config")] config: Option<String>,
-    #[arg(short = 't', long="template")] template: Option<String>,
 }
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if let Some(input_vals) = cli.input_time.as_deref() {
         let date: Option<&str> = input_vals.get(3).map(|x| x.as_str());
         input_time(&input_vals[0], &input_vals[1], &input_vals[2], date)?;
     }
-    if let Some(_exec_vals) = cli.exec.as_deref() {
-        let db_path = "test.db";
-        let invoice_info = request_invoice_info();
-        generate_tutoring_invoice(db_path, invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
+    if let Some(exec_vals) = cli.exec.as_deref() {
+        let config: ExecValues = parse_exec(exec_vals);
+        generate_tutoring_invoice(config.db_path.as_str(), config.invoice_info, config.template_path.as_str(), config.output_path.as_str())?;
     }
 
     Ok(())

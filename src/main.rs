@@ -1,11 +1,12 @@
 use std::fs;
 use std::io;
-use std::env;
 use std::path::{PathBuf};
 
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
+use serde::{Deserialize, Serialize};
 
+#[derive(Default, Debug, Deserialize, Serialize)]
 struct InvoiceInfo {
     title: String,
     sender_name: String,
@@ -19,12 +20,6 @@ struct InvoiceInfo {
     invoice_num: String,
     rate: String,
     payment_method: String
-}
-
-fn help(arg1: &str) {
-    println!("usage:
-    {arg1} -i <db_file> <start_time> <end_time> [date]
-    {arg1} -x [-t template_file] <-d db_file | -c config>");
 }
 
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
@@ -123,15 +118,12 @@ struct Hours {
     time_end: String,
 }
 
-fn generate_tutoring_invoice(
-    db_path: &str,
-    invoice_info: InvoiceInfo,
-    template_path: &str,
-    output_path: &str,
+fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template_path: &str, output_path: &str,
 ) -> Result<()> {
     let template_path = PathBuf::from(template_path);
     let output_path = PathBuf::from(output_path);
-    let mut template = fs::read_to_string(template_path).unwrap();
+    let mut template = fs::read_to_string(template_path)
+        .expect("file could not be found or does not exist");
 
     template = template.replace("{{TITLE}}", &invoice_info.title.trim());
     template = template.replace("{{SENDER_NAME}}", &invoice_info.sender_name.trim());
@@ -169,13 +161,13 @@ fn generate_tutoring_invoice(
         let (mut hrs, mut mins) = data.time_start.split_once(':').expect("Expected as HH:MM format");
         let start_hour: f32 = 
         ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
-        + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
+            + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
             .round()/2 as f32;
 
         (hrs, mins) = data.time_end.split_once(':').expect("Expected as HH:MM format");
         let end_hour: f32 = 
         ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
-        + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
+            + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
             .round()/2.0 as f32;
 
         let timedelta = end_hour - start_hour;
@@ -205,18 +197,67 @@ fn generate_tutoring_invoice(
     Ok(())
 }
 
-fn main() -> Result<()>{
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 1 { help(&args[0]); }
-    else if args[1] == "-i" {
-        let date = if args.len() >= 6 { Some(args[5].as_str()) } else { None };
-        input_time(&args[2], &args[3], &args[4], date)?;
+// Argument Parsing Functions
+use clap::Parser;
+
+#[derive(Default, Debug, Deserialize, Serialize)]
+struct ExecValues {
+    db_path: String,
+    template_path: String,
+    output_path: String,
+    invoice_info: InvoiceInfo
+}
+
+fn parse_exec(vals: &[String]) -> ExecValues {
+    let mut exec_config = ExecValues::default();
+    if vals[0] == "-c" {
+        let conf_json = fs::read_to_string(vals[1].as_str())
+            .expect("Something went wrong when reading the config file");
+        exec_config = serde_json::from_str(&conf_json)
+            .expect("Something went wrong when parsing the file config file");
     }
-    else if args[1] == "-x" {
-        let db_path = &args[2];
-        let invoice_info = request_invoice_info();
-        generate_tutoring_invoice(db_path, invoice_info, "templates/tutoring_invoice.tex", "test.tex")?;
+    else {
+        exec_config.db_path = vals[0].clone();
+        exec_config.template_path = vals[1].clone();
+        exec_config.output_path = vals[2].clone();
+        exec_config.invoice_info = request_invoice_info();
     }
-    else { help(&args[0]); }
+    exec_config
+}
+
+#[derive(Parser, Debug)]
+struct Cli {
+    #[arg(
+        short = 'i',
+        long = "input_time",
+        value_names = ["DB_PATH", "START_TIME", "END_TIME", "DATE"],
+        num_args = 3..=4
+    )]
+    input_time: Option<Vec<String>>,
+
+    #[arg(
+        short = 'x',
+        long = "exec",
+        allow_hyphen_values = true,
+        value_names = ["DB_PATH", "TEMPLATE_PATH", "OUTPUT_PATH"],
+        num_args = 2..=3
+    )]
+    exec: Option<Vec<String>>,
+
+    #[arg(short = 'c', long="config")] config: Option<String>,
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    if let Some(input_vals) = cli.input_time.as_deref() {
+        let date: Option<&str> = input_vals.get(3).map(|x| x.as_str());
+        input_time(&input_vals[0], &input_vals[1], &input_vals[2], date)?;
+    }
+    if let Some(exec_vals) = cli.exec.as_deref() {
+        let config: ExecValues = parse_exec(exec_vals);
+        generate_tutoring_invoice(config.db_path.as_str(), config.invoice_info, config.template_path.as_str(), config.output_path.as_str())?;
+    }
+
     Ok(())
 }

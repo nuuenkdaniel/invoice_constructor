@@ -26,5 +26,5 @@ Design Doc Template Inspired by Sadneo
   - (x) Implement prompter function to obtain arguments
   - (x) Find py library to write to tex doc
   - (x) Generate Tex Doc from arguments and template
-  - ( ) Setup arg parsing -i input time, -c config(so you don't have to type out everything everytime), -t template(future thing)
+  - (x) Setup arg parsing -i input time, -c config(so you don't have to type out everything everytime)
   - ( ) Create readme

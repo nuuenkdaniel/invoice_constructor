@@ -1,0 +1,19 @@
+{
+  "db_path": "db_path",
+  "template_path": "template_path",
+  "output_path": "output_path",
+  "invoice_info": {
+    "title": "title",
+    "sender_name": "sender_name",
+    "location_name": "location_name",
+    "location_street": "location_street",
+    "location_city": "location_city",
+    "parent_name": "parent_name",
+    "student_name": "student_name",
+    "bill_to_street": "bill_to_street",
+    "bill_to_city": "bill_to_city",
+    "invoice_num": "invoice_num",
+    "rate": "rate",
+    "payment_method": "payment_method"
+  }
+}

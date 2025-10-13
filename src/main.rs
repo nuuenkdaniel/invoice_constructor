@@ -4,8 +4,9 @@ use std::path::{PathBuf};
 
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 struct InvoiceInfo {
     title: String,
     sender_name: String,
@@ -117,15 +118,12 @@ struct Hours {
     time_end: String,
 }
 
-fn generate_tutoring_invoice(
-    db_path: &str,
-    invoice_info: InvoiceInfo,
-    template_path: &str,
-    output_path: &str,
+fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template_path: &str, output_path: &str,
 ) -> Result<()> {
     let template_path = PathBuf::from(template_path);
     let output_path = PathBuf::from(output_path);
-    let mut template = fs::read_to_string(template_path).unwrap();
+    let mut template = fs::read_to_string(template_path)
+        .expect("file could not be found or does not exist");
 
     template = template.replace("{{TITLE}}", &invoice_info.title.trim());
     template = template.replace("{{SENDER_NAME}}", &invoice_info.sender_name.trim());
@@ -199,9 +197,10 @@ fn generate_tutoring_invoice(
     Ok(())
 }
 
+// Argument Parsing Functions
 use clap::Parser;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 struct ExecValues {
     db_path: String,
     template_path: String,
@@ -209,13 +208,14 @@ struct ExecValues {
     invoice_info: InvoiceInfo
 }
 
-fn parse_exec_config(_config_path: &str) -> ExecValues {
-
-}
-
 fn parse_exec(vals: &[String]) -> ExecValues {
     let mut exec_config = ExecValues::default();
-    if vals[0] == "-c" { exec_config = parse_exec_config(&vals[1]); }
+    if vals[0] == "-c" {
+        let conf_json = fs::read_to_string(vals[1].as_str())
+            .expect("Something went wrong when reading the config file");
+        exec_config = serde_json::from_str(&conf_json)
+            .expect("Something went wrong when parsing the file config file");
+    }
     else {
         exec_config.db_path = vals[0].clone();
         exec_config.template_path = vals[1].clone();
@@ -240,7 +240,7 @@ struct Cli {
         long = "exec",
         allow_hyphen_values = true,
         value_names = ["DB_PATH", "TEMPLATE_PATH", "OUTPUT_PATH"],
-        num_args = 2
+        num_args = 2..=3
     )]
     exec: Option<Vec<String>>,
 

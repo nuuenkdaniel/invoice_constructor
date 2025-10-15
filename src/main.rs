@@ -23,9 +23,10 @@ struct InvoiceInfo {
 }
 
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
-fn input_time(db_path: &str, time_start: &str, time_end: &str, date: Option<&str>,) -> Result<()> {
+fn input_time(db_path: &str, time_start: &str, time_end: &str, description: &str, date: Option<&str>,) -> Result<()> {
     let current_date = Local::now().date_naive().to_string();
     let date = date.unwrap_or(&current_date);
+    dbg!(date);
     let db_path = PathBuf::from(db_path);
     let conn = Connection::open(&db_path)?;
     conn.execute_batch(r#"
@@ -34,12 +35,13 @@ fn input_time(db_path: &str, time_start: &str, time_end: &str, date: Option<&str
           date TEXT NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
           time_start TEXT NOT NULL CHECK (time_start GLOB '[0-2][0-9]:[0-5][0-9]'),
           time_end TEXT NOT NULL CHECK (time_end GLOB '[0-2][0-9]:[0-5][0-9]'),
+          description TEXT NOT NULL,
           CHECK (time_end > time_start)
         );
     "#)?;
     conn.execute(
-        "INSERT INTO tutoring_hours (date, time_start, time_end) VALUES (?1, ?2, ?3)",
-        params![date, time_start, time_end],
+        "INSERT INTO tutoring_hours (date, time_start, time_end, description) VALUES (?1, ?2, ?3, ?4)",
+        params![date, time_start, time_end, description],
     )?;
     Ok(())
 }
@@ -112,10 +114,11 @@ fn request_invoice_info() -> InvoiceInfo {
     }
 }
 
-struct Hours {
+struct Items {
     date: String,
     time_start: String,
     time_end: String,
+    description: String,
 }
 
 fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template_path: &str, output_path: &str,
@@ -142,14 +145,15 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
 
     let db_path = PathBuf::from(db_path);
     let conn = Connection::open(&db_path)?;
-    let mut stmt = conn.prepare("SELECT date, time_start, time_end FROM tutoring_hours")?;
+    let mut stmt = conn.prepare("SELECT date, time_start, time_end, description FROM tutoring_hours")?;
 
     // Get hours from db
     let tutoring_hours = stmt.query_map([], |row| {
-        Ok(Hours {
+        Ok(Items {
             date: row.get(0)?,
             time_start: row.get(1)?,
             time_end: row.get(2)?,
+            description: row.get(3)?,
         })
     })?;
 
@@ -173,7 +177,7 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
         let timedelta = end_hour - start_hour;
         total_hours += timedelta;
 
-        let description = "test";
+        let description = data.description;
         let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, data.time_start, data.time_end, rate, timedelta*rate);
         rows.push(row_formatted);
         println!("{}\t{}\t{}", data.date, data.time_start, data.time_end);
@@ -230,8 +234,8 @@ struct Cli {
     #[arg(
         short = 'i',
         long = "input_time",
-        value_names = ["DB_PATH", "START_TIME", "END_TIME", "DATE"],
-        num_args = 3..=4
+        value_names = ["DB_PATH", "START_TIME", "END_TIME", "DESCRIPTION", "DATE"],
+        num_args = 4..=5
     )]
     input_time: Option<Vec<String>>,
 
@@ -251,8 +255,8 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if let Some(input_vals) = cli.input_time.as_deref() {
-        let date: Option<&str> = input_vals.get(3).map(|x| x.as_str());
-        input_time(&input_vals[0], &input_vals[1], &input_vals[2], date)?;
+        let date: Option<&str> = input_vals.get(4).map(|x| x.as_str());
+        input_time(&input_vals[0], &input_vals[1], &input_vals[2], &input_vals[3],  date)?;
     }
     if let Some(exec_vals) = cli.exec.as_deref() {
         let config: ExecValues = parse_exec(exec_vals);

@@ -1,6 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::{PathBuf};
+use std::error::Error;
 
 use chrono::prelude::*;
 use rusqlite::{params, Connection, Result};
@@ -38,16 +39,15 @@ fn view_db(db_path: &str) -> Result<()> {
     })?;
     for item in tutoring_hours {
         let item = item?;
-        println!("{}\t{}\t{}\t{}\t", item.date, item.time_start, item.time_end, item.description);
+        println!("{}\t{}\t{}\t{}", item.date, item.time_start, item.time_end, item.description);
     }
     Ok(())
 }
 
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
-fn input_time(db_path: &str, time_start: &str, time_end: &str, description: &str, date: Option<&str>,) -> Result<()> {
+fn input_time(db_path: &str, time_start: &str, time_end: &str, description: &str, date: Option<&str>,) -> Result<String> {
     let current_date = Local::now().date_naive().to_string();
     let date = date.unwrap_or(&current_date);
-    dbg!(date);
     let db_path = PathBuf::from(db_path);
     let conn = Connection::open(&db_path)?;
     conn.execute_batch(r#"
@@ -64,7 +64,8 @@ fn input_time(db_path: &str, time_start: &str, time_end: &str, description: &str
         "INSERT INTO tutoring_hours (date, time_start, time_end, description) VALUES (?1, ?2, ?3, ?4)",
         params![date, time_start, time_end, description],
     )?;
-    Ok(())
+    let formatted_entry = format!("{}\t{}\t{}\t{}", date, time_start, time_end, description);
+    Ok(formatted_entry)
 }
 
 fn request_string() -> String {
@@ -143,7 +144,7 @@ struct Items {
 }
 
 fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template_path: &str, output_path: &str,
-) -> Result<String, Box<dyn Error>> {
+) -> Result<PathBuf, Box<dyn Error>> {
     let template_path = PathBuf::from(template_path);
     let output_path = PathBuf::from(output_path);
     let mut template = fs::read_to_string(template_path)
@@ -200,8 +201,8 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
 
         let description = data.description;
         let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, data.time_start, data.time_end, rate, timedelta*rate);
+        println!("{row_formatted}");
         rows.push(row_formatted);
-        println!(row_formated);
         println!("Hours: {timedelta}");
     }
     println!("Total Hours: {total_hours}");
@@ -218,8 +219,8 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
     template = template.replace("{{PAID}}", &((total_hours*rate).to_string()));
     template = template.replace("{{PAYMENT_METHOD}}", &invoice_info.payment_method.trim());
 
-    fs::write(output_path, template).unwrap();
-    Ok((output_path))
+    fs::write(output_path.clone(), template).unwrap();
+    Ok(output_path)
 }
 
 // Argument Parsing Functions
@@ -270,6 +271,7 @@ struct Cli {
     exec: Option<Vec<String>>,
 
     #[arg(short = 'c', long="config")] config: Option<String>,
+    #[arg(short = 'v', long="view_db")] view_db: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -277,15 +279,16 @@ fn main() -> Result<()> {
 
     if let Some(input_vals) = cli.input_time.as_deref() {
         let date: Option<&str> = input_vals.get(4).map(|x| x.as_str());
-        input_time(&input_vals[0], &input_vals[1], &input_vals[2], &input_vals[3],  date)?;
-        println!("Input time");
+        let db_entry:String = input_time(&input_vals[0], &input_vals[1], &input_vals[2], &input_vals[3],  date)?;
+        println!("Added entry: {}", db_entry);
     }
     if let Some(exec_vals) = cli.exec.as_deref() {
         let config: ExecValues = parse_exec(exec_vals);
-        let output_path: String = generate_tutoring_invoice(config.db_path.as_str(), config.invoice_info, config.template_path.as_str(), config.output_path.as_str())?;
-        println!("Generated: {}", output_path);
+        let output_path: PathBuf = generate_tutoring_invoice(config.db_path.as_str(), config.invoice_info, config.template_path.as_str(), config.output_path.as_str()).unwrap();
+        println!("Generated: {}", output_path.display());
     }
-    let _ = view_db("test.db");
-
+    if let Some(view_db_vals) = cli.view_db.as_deref() {
+        view_db(&view_db_vals)?;
+    }
     Ok(())
 }

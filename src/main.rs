@@ -22,6 +22,27 @@ struct InvoiceInfo {
     payment_method: String
 }
 
+fn view_db(db_path: &str) -> Result<()> {
+    let db_path = PathBuf::from(db_path);
+    let conn = Connection::open(&db_path)?;
+    let mut stmt = conn.prepare("SELECT date, time_start, time_end, description FROM tutoring_hours")?;
+
+    // Get hours from db
+    let tutoring_hours = stmt.query_map([], |row| {
+        Ok(Items {
+            date: row.get(0)?,
+            time_start: row.get(1)?,
+            time_end: row.get(2)?,
+            description: row.get(3)?,
+        })
+    })?;
+    for item in tutoring_hours {
+        let item = item?;
+        println!("{}\t{}\t{}\t{}\t", item.date, item.time_start, item.time_end, item.description);
+    }
+    Ok(())
+}
+
 // Expected input db: file_path, date: YYYY-MM-DD time_start: hh:mm, time_end: hh:mm
 fn input_time(db_path: &str, time_start: &str, time_end: &str, description: &str, date: Option<&str>,) -> Result<()> {
     let current_date = Local::now().date_naive().to_string();
@@ -122,7 +143,7 @@ struct Items {
 }
 
 fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template_path: &str, output_path: &str,
-) -> Result<()> {
+) -> Result<String, Box<dyn Error>> {
     let template_path = PathBuf::from(template_path);
     let output_path = PathBuf::from(output_path);
     let mut template = fs::read_to_string(template_path)
@@ -180,7 +201,7 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
         let description = data.description;
         let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, data.time_start, data.time_end, rate, timedelta*rate);
         rows.push(row_formatted);
-        println!("{}\t{}\t{}", data.date, data.time_start, data.time_end);
+        println!(row_formated);
         println!("Hours: {timedelta}");
     }
     println!("Total Hours: {total_hours}");
@@ -198,7 +219,7 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
     template = template.replace("{{PAYMENT_METHOD}}", &invoice_info.payment_method.trim());
 
     fs::write(output_path, template).unwrap();
-    Ok(())
+    Ok((output_path))
 }
 
 // Argument Parsing Functions
@@ -257,11 +278,14 @@ fn main() -> Result<()> {
     if let Some(input_vals) = cli.input_time.as_deref() {
         let date: Option<&str> = input_vals.get(4).map(|x| x.as_str());
         input_time(&input_vals[0], &input_vals[1], &input_vals[2], &input_vals[3],  date)?;
+        println!("Input time");
     }
     if let Some(exec_vals) = cli.exec.as_deref() {
         let config: ExecValues = parse_exec(exec_vals);
-        generate_tutoring_invoice(config.db_path.as_str(), config.invoice_info, config.template_path.as_str(), config.output_path.as_str())?;
+        let output_path: String = generate_tutoring_invoice(config.db_path.as_str(), config.invoice_info, config.template_path.as_str(), config.output_path.as_str())?;
+        println!("Generated: {}", output_path);
     }
+    let _ = view_db("test.db");
 
     Ok(())
 }

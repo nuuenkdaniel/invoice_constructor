@@ -10,3 +10,5 @@ sudo mv invoice_constructor /usr/local/bin/
 mkdir ~/.local/share/invoice_constructor
 
 mv examples templates ~/.local/share/invoice_constructor
+
+rm invoice_constructor-1.1-linux.tar.gz

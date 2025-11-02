@@ -190,17 +190,23 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
             + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
             .round()/2 as f32;
 
+        // Convert to 12 hr format
+        let start_time_formatted: String = convert_12hr(start_hour);
+
         (hrs, mins) = data.time_end.split_once(':').expect("Expected as HH:MM format");
         let end_hour: f32 = 
         ((hrs.parse::<f32>().expect("Failed to convert string hours to f32 hours")
             + mins.parse::<f32>().expect("Failed to convert string minutes to f32 minutes")/60.0)*2.0)
             .round()/2.0 as f32;
 
+        // Convert to 12 hr format
+        let end_time_formatted: String = convert_12hr(end_hour);
+
         let timedelta = end_hour - start_hour;
         total_hours += timedelta;
 
         let description = data.description;
-        let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, data.time_start, data.time_end, rate, timedelta*rate);
+        let row_formatted: String = format!("{} & {} & {}-{} & {} & {} \\\\", data.date, description, start_time_formatted, end_time_formatted, rate, timedelta*rate);
         println!("{row_formatted}");
         rows.push(row_formatted);
         println!("Hours: {timedelta}");
@@ -221,6 +227,26 @@ fn generate_tutoring_invoice( db_path: &str, invoice_info: InvoiceInfo, template
 
     fs::write(output_path.clone(), template).unwrap();
     Ok(output_path)
+}
+
+fn convert_12hr(hrs: f32) -> String {
+    let hours: i64 = hrs.floor().round() as i64;
+    let minutes: i64 = ((hrs%1.0)*60.0).round() as i64;
+    let minutes_formatted: String =  
+    if minutes < 10 { format!("0{}", minutes) }
+    else { minutes.to_string() };
+    if hours == 12 {
+        format!("12:{}pm", minutes_formatted)
+    }
+    else if hours == 0 {
+        format!("12:{}am", minutes_formatted)
+    }
+    else if hours > 12 {
+        format!("{}:{}pm", hours-12, minutes_formatted)
+    }
+    else {
+        format!("{}:{}am", hours, minutes_formatted)
+    }
 }
 
 // Argument Parsing Functions
@@ -250,6 +276,7 @@ fn parse_exec(vals: &[String]) -> ExecValues {
     }
     exec_config
 }
+
 
 #[derive(Parser, Debug)]
 struct Cli {
